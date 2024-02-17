@@ -172,10 +172,24 @@ class Main(object):
                                 MsgType = AnswerMsgDict['AnswerMsgType']
                                 if MsgType == 'Plain':
                                     AnswerMsg['text'] = AnswerMsgDict['AnswerMsg']
-                                if MsgType == 'Image' or MsgType == 'Voice':
-                                    AnswerMsg['url'] = AnswerMsgDict['AnswerMsg']
+                                if MsgType == 'Image':
+                                    # 是否有图库json
+                                    ImagePath = '/XiaoFeimianConfig/Msg/Image.json'
+                                    if os.path.exists(ImagePath):
+                                        # 直接读取文件
+                                        with open(ImagePath, 'r', encoding='utf-8') as ImageFile:
+                                            ImageFileDict = json.loads(ImageFile.read())
+                                            try:
+                                                AnswerMsg['url'] = ImageFileDict[AnswerMsgDict['AnswerMsg']]
+                                            except:
+                                                AnswerMsg['url'] = 'https://x19.fp.ps.netease.com/file/64a1f11df6a477098a522a6fO1RcmRcB05'
+                                    else:
+                                        # 没有就发大肥免图片！
+                                        AnswerMsg['url'] = 'https://x19.fp.ps.netease.com/file/64a1f11df6a477098a522a6fO1RcmRcB05'
                                 if MsgType == 'Face':
                                     AnswerMsg['faceId'] = AnswerMsgDict['AnswerMsg']
+                                if MsgType == 'Voice':
+                                    AnswerMsg['url'] = AnswerMsgDict['AnswerMsg']
                                 Timer = random.uniform(ReplyConfigDict['reply_wait_base_time'] - ReplyConfigDict['reply_wait_float_time'],
                                                   ReplyConfigDict['reply_wait_base_time'] + ReplyConfigDict['reply_wait_float_time'])
                                 print('Send msg wait time: {0} seconds'.format(Timer))
@@ -228,49 +242,66 @@ class Main(object):
             Dict = json.loads(Json)
         MsgList = Dict['MsgList']
         AnswerType, AnswerData = self.ProcessMsgTypeToLearning(NewMsgDict)
+
+        if AnswerType == 'Image':
+            # 是否有图库json
+            ImagePath = '/XiaoFeimianConfig/Msg/Image.json'
+            if os.path.exists(ImagePath):
+                # 直接读取文件
+                with open(ImagePath, 'r', encoding='utf-8') as ImageFile:
+                    ImageFileDict = json.loads(ImageFile.read())
+            else:
+                ImageFileDict = {}
+            ImageFileDict['{0}'.format(AnswerData)] = NewMsgDict['messageChain'][-1]['url']
+            # 写入
+            with open(ImagePath, 'w', encoding='utf-8') as ImageFile:
+                json.dump(ImageFileDict, ImageFile, indent=4, ensure_ascii=False)
+
         if len(MsgList) >= 2:
             QuestionMsgDict = MsgList[-2]
             QuestionType, QuestionData = self.ProcessMsgTypeToLearning(QuestionMsgDict)
+        else:
+            QuestionType, QuestionData = 'Plain', '大肥免'
 
-            # 是否有QA文件
-            MsgPath = '/XiaoFeimianConfig/Msg/{0}_QA.json'.format(GroupId)
-            if os.path.exists(MsgPath):
-                # 直接读取文件
-                with open(MsgPath, 'r', encoding='utf-8') as QAFile:
-                    QAFileDict = json.loads(QAFile.read())
-            else:
-                QAFileDict = {
-                    'QAList': []
+        # 是否有QA文件
+        MsgPath = '/XiaoFeimianConfig/Msg/{0}_QA.json'.format(GroupId)
+        if os.path.exists(MsgPath):
+            # 直接读取文件
+            with open(MsgPath, 'r', encoding='utf-8') as QAFile:
+                QAFileDict = json.loads(QAFile.read())
+        else:
+            QAFileDict = {
+                'QAList': []
+            }
+
+        # 是否有对应消息问题
+        Num = 0
+        for OneQA in QAFileDict['QAList']:
+            if OneQA['QuestionMsg'] == QuestionData and OneQA['QuestionMsgType'] == QuestionType:
+                Num += 1
+                AnswerDict = {
+                    'AnswerMsg': AnswerData,
+                    'AnswerMsgType': AnswerType
                 }
-
-            # 是否有对应消息问题
-            Num = 0
-            for OneQA in QAFileDict['QAList']:
-                if OneQA['QuestionMsg'] == QuestionData and OneQA['QuestionMsgType'] == QuestionType:
-                    Num += 1
-                    AnswerDict = {
+                AnswerList = OneQA['AnswerList']
+                AnswerList.append(AnswerDict)
+                OneQA['AnswerList'] = AnswerList
+        if not Num:
+            QADict = {
+                'QuestionMsg': QuestionData,
+                'QuestionMsgType': QuestionType,
+                # 直接append这个就相当于加权重了
+                'AnswerList': [
+                    {
                         'AnswerMsg': AnswerData,
                         'AnswerMsgType': AnswerType
                     }
-                    AnswerList = OneQA['AnswerList']
-                    AnswerList.append(AnswerDict)
-                    OneQA['AnswerList'] = AnswerList
-            if not Num:
-                QADict = {
-                    'QuestionMsg': QuestionData,
-                    'QuestionMsgType': QuestionType,
-                    # 直接append这个就相当于加权重了
-                    'AnswerList': [
-                        {
-                            'AnswerMsg': AnswerData,
-                            'AnswerMsgType': AnswerType
-                        }
-                    ]
-                }
-                QAFileDict['QAList'].append(QADict)
-            # 写入新的QAList
-            with open(MsgPath, 'w', encoding='utf-8') as QAFile:
-                json.dump(QAFileDict, QAFile, indent=4, ensure_ascii=False)
+                ]
+            }
+            QAFileDict['QAList'].append(QADict)
+        # 写入新的QAList
+        with open(MsgPath, 'w', encoding='utf-8') as QAFile:
+            json.dump(QAFileDict, QAFile, indent=4, ensure_ascii=False)
 
     # 处理消息类型以用于学习
     def ProcessMsgTypeToLearning(self, MsgDict):
@@ -280,10 +311,12 @@ class Main(object):
             MsgData = False
             if MsgType == 'Plain':
                 MsgData = MsgDict['messageChain'][-1]['text']
-            if MsgType == 'Image' or MsgType == 'Voice':
-                MsgData = MsgDict['messageChain'][-1]['url']
+            if MsgType == 'Image':
+                MsgData = MsgDict['messageChain'][-1]['imageId']
             if MsgType == 'Face':
                 MsgData = MsgDict['messageChain'][-1]['faceId']
+            if MsgType == 'Voice':
+                MsgData = MsgDict['messageChain'][-1]['url']
             return MsgType, MsgData
         else:
             print('不属于记录类型')
