@@ -67,6 +67,48 @@ adapterSettings:
    - dfm:cos_match_value: 相似度计算达到多少就匹配答案(0~1)
    - dfm:reply_wait_base_time: 回复行为的基础等待时间
    - dfm:reply_wait_float_time: 回复行为的浮动时间(+-)
-   你也可以在`XiaoFeimian.exe`程序里输入`config help`来查看这些信息。
+   你也可以在`XiaoFeimian.exe`程序里输入`config help`来查看这些信息。示范：
+```json
+{
+    "format_version": "1.0.0",
+    "dfm:chat_learning": {
+        "description": {
+            "key": "",
+            "host": "localhost",
+            "port": "23750",
+            "qq": "3567749021",
+            "session": ""
+        },
+        "components": {
+            "dfm:learning_list": {
+                "value": [
+                    766176115,
+                    687577485,
+                    456370680,
+                    212048505,
+                    180568043
+                ]
+            },
+            "dfm:reply_list": {
+                "value": [
+                    766176115,
+                    687577485,
+                    456370680,
+                    598874379,
+                    212048505,
+                    180568043
+                ]
+            },
+            "dfm:reply": {
+                "chance": 1.0,
+                "cos_match": true,
+                "cos_match_value": 0.5,
+                "reply_wait_base_time": 1.0,
+                "reply_wait_float_time": 0.5
+            }
+        }
+    }
+}
+```
 7. 修改完毕之后，保证`Mirai`正常运行以及登录QQ，然后打开`XiaoFeimian.exe`程序就可以辣！看到这个就表示连接成功~
    ![image](https://github.com/DaFeimian/XiaoFeimian/assets/135980226/871521ff-7fd8-4295-b591-c752fc4d0877)
