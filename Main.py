@@ -228,48 +228,49 @@ class Main(object):
             Dict = json.loads(Json)
         MsgList = Dict['MsgList']
         AnswerType, AnswerData = self.ProcessMsgTypeToLearning(NewMsgDict)
-        QuestionMsgDict = MsgList[-2]
-        QuestionType, QuestionData = self.ProcessMsgTypeToLearning(QuestionMsgDict)
+        if len(MsgList) >= 2:
+            QuestionMsgDict = MsgList[-2]
+            QuestionType, QuestionData = self.ProcessMsgTypeToLearning(QuestionMsgDict)
 
-        # 是否有QA文件
-        MsgPath = '/XiaoFeimianConfig/Msg/{0}_QA.json'.format(GroupId)
-        if os.path.exists(MsgPath):
-            # 直接读取文件
-            with open(MsgPath, 'r', encoding='utf-8') as QAFile:
-                QAFileDict = json.loads(QAFile.read())
-        else:
-            QAFileDict = {
-                'QAList': []
-            }
-
-        # 是否有对应消息问题
-        Num = 0
-        for OneQA in QAFileDict['QAList']:
-            if OneQA['QuestionMsg'] == QuestionData and OneQA['QuestionMsgType'] == QuestionType:
-                Num += 1
-                AnswerDict = {
-                    'AnswerMsg': AnswerData,
-                    'AnswerMsgType': AnswerType
+            # 是否有QA文件
+            MsgPath = '/XiaoFeimianConfig/Msg/{0}_QA.json'.format(GroupId)
+            if os.path.exists(MsgPath):
+                # 直接读取文件
+                with open(MsgPath, 'r', encoding='utf-8') as QAFile:
+                    QAFileDict = json.loads(QAFile.read())
+            else:
+                QAFileDict = {
+                    'QAList': []
                 }
-                AnswerList = OneQA['AnswerList']
-                AnswerList.append(AnswerDict)
-                OneQA['AnswerList'] = AnswerList
-        if not Num:
-            QADict = {
-                'QuestionMsg': QuestionData,
-                'QuestionMsgType': QuestionType,
-                # 直接append这个就相当于加权重了
-                'AnswerList': [
-                    {
+
+            # 是否有对应消息问题
+            Num = 0
+            for OneQA in QAFileDict['QAList']:
+                if OneQA['QuestionMsg'] == QuestionData and OneQA['QuestionMsgType'] == QuestionType:
+                    Num += 1
+                    AnswerDict = {
                         'AnswerMsg': AnswerData,
                         'AnswerMsgType': AnswerType
                     }
-                ]
-            }
-            QAFileDict['QAList'].append(QADict)
-        # 写入新的QAList
-        with open(MsgPath, 'w', encoding='utf-8') as QAFile:
-            json.dump(QAFileDict, QAFile, indent=4, ensure_ascii=False)
+                    AnswerList = OneQA['AnswerList']
+                    AnswerList.append(AnswerDict)
+                    OneQA['AnswerList'] = AnswerList
+            if not Num:
+                QADict = {
+                    'QuestionMsg': QuestionData,
+                    'QuestionMsgType': QuestionType,
+                    # 直接append这个就相当于加权重了
+                    'AnswerList': [
+                        {
+                            'AnswerMsg': AnswerData,
+                            'AnswerMsgType': AnswerType
+                        }
+                    ]
+                }
+                QAFileDict['QAList'].append(QADict)
+            # 写入新的QAList
+            with open(MsgPath, 'w', encoding='utf-8') as QAFile:
+                json.dump(QAFileDict, QAFile, indent=4, ensure_ascii=False)
 
     # 处理消息类型以用于学习
     def ProcessMsgTypeToLearning(self, MsgDict):
