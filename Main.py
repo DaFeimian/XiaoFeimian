@@ -431,7 +431,7 @@ class Main(object):
             for Oneban in Ban:
                 textList = []
                 for Onetext in Msg:
-                    if Onetext == Oneban and Onetext not in textList:
+                    if Onetext == Oneban and Onetext not in textList and not Bool:
                         textList.append(Onetext)
                         BanNum += 1
                         AllBanNum += 1
