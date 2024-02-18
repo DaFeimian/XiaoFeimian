@@ -116,110 +116,181 @@ class Main(object):
         for MsgDict in MsgList:
             # 群消息
             if MsgDict['type'] == 'GroupMessage':
-                # 学习
-                LearningList = self.Config['dfm:chat_learning']['components']['dfm:learning_list']['value']
-                if MsgDict['sender']['group']['id'] in LearningList:
-                    print('Add Learning Msg.')
-                    MsgPath = '/XiaoFeimianConfig/Msg/{0}.json'.format(str(MsgDict['sender']['group']['id']))
-                    if os.path.exists(MsgPath):
-                        with open(MsgPath, 'r', encoding='utf-8') as MsgFile:
-                            Json = MsgFile.read()
-                            Dict = json.loads(Json)
-                            DictMsgList = Dict['MsgList']
+                # 判断是否包含违禁字词
+                Ban = self.Config['dfm:chat_learning']['components']['dfm:ban']
+                IsBan = Ban['bool']
+                HasBan = False
+                TargetPermission = MsgDict['sender']['permission']
+                BanNum = 0
+                # 违禁词检测未开启则默认无违禁
+                if IsBan and TargetPermission not in ['ADMINISTRATOR', 'OWNER']:
+                    MsgChainList = MsgDict['messageChain'][1:]
+                    PlainMsgList = []
+                    for OneMsgChain in MsgChainList:
+                        if OneMsgChain['type'] == 'Plain':
+                            PlainMsgList.append(OneMsgChain)
+                    UserText = ''
+                    for TextDict in PlainMsgList:
+                        UserText += str(TextDict['text'])
+                    HasBan, BanNum = self.GetBan(UserText)
+
+                # 如果有违禁词
+                if HasBan:
+                    print('Test ban list.')
+                    MsgId = MsgDict['messageChain'][0]['id']
+                    TargetId = MsgDict['sender']['group']['id']
+                    RobotPermission = MsgDict['sender']['group']['permission']
+                    MsgMemberName = MsgDict['sender']['memberName']
+                    # 如果自己是群主或管理，则发送有权限撤回的消息，或者是自己说的话
+                    try:
+                        QQ = int(self.Config['dfm:chat_learning']['description']['qq'])
+                    except:
+                        QQ = 0
+                        print('[Error]: The config file "qq" is type wrong.')
+                    if RobotPermission in ['ADMINISTRATOR', 'OWNER'] or MsgDict['sender']['id'] == QQ:
+                        AnswerText = Ban['admin_ban_text'].format(name=MsgMemberName, n=BanNum)
+                        if AnswerText:
+                            AnswerMsg = {
+                                "type": 'Plain',
+                                "text": AnswerText
+                            }
+                            self.SendGroupAnswerMsg(AnswerMsg, MsgDict['sender']['group']['id'])
+                        # 撤回消息
+                        ReplyConfigDict = self.Config['dfm:chat_learning']['components']['dfm:reply']
+                        Timer = random.uniform(
+                            ReplyConfigDict['reply_wait_base_time'] - ReplyConfigDict['reply_wait_float_time'],
+                            ReplyConfigDict['reply_wait_base_time'] + ReplyConfigDict['reply_wait_float_time'])
+                        print('Recall the message in {} seconds.'.format(Timer + 1))
+                        time.sleep(Timer + 1)
+                        Url = self.PostUrl('recall')
+                        Data = {
+                            "sessionKey": "".format(self.Config['dfm:chat_learning']['description']['session']),
+                            "target": TargetId,
+                            "messageId": MsgId
+                        }
+                        r.request('post', Url, json=Data)
+                    else:
+                        AnswerText = Ban['not_admin_ban_text'].format(name=MsgMemberName, n=BanNum)
+                        if AnswerText:
+                            AnswerMsg = {
+                                "type": 'Plain',
+                                "text": AnswerText
+                            }
+                            self.SendGroupAnswerMsg(AnswerMsg, MsgDict['sender']['group']['id'])
+                # 没有则正常学习和回复
+                else:
+                    # 学习
+                    LearningList = self.Config['dfm:chat_learning']['components']['dfm:learning_list']['value']
+                    if MsgDict['sender']['group']['id'] in LearningList:
+                        print('Add Learning Msg.')
+                        MsgPath = '/XiaoFeimianConfig/Msg/{0}.json'.format(str(MsgDict['sender']['group']['id']))
+                        if os.path.exists(MsgPath):
+                            with open(MsgPath, 'r', encoding='utf-8') as MsgFile:
+                                Json = MsgFile.read()
+                                Dict = json.loads(Json)
+                                DictMsgList = Dict['MsgList']
+                                DictMsgList.append(MsgDict)
+                                NewDict = {
+                                    'MsgList': DictMsgList
+                                }
+                            with open(MsgPath, 'w', encoding='utf-8') as MsgFile:
+                                json.dump(NewDict, MsgFile, indent=4, ensure_ascii=False)
+                        else:
+                            DictMsgList = []
                             DictMsgList.append(MsgDict)
                             NewDict = {
                                 'MsgList': DictMsgList
                             }
-                        with open(MsgPath, 'w', encoding='utf-8') as MsgFile:
-                            json.dump(NewDict, MsgFile, indent=4, ensure_ascii=False)
+                            with open(MsgPath, 'w', encoding='utf-8') as MsgFile:
+                                json.dump(NewDict, MsgFile, indent=4, ensure_ascii=False)
+                        self.LearningUpdate(MsgPath, MsgDict['sender']['group']['id'], MsgDict)
                     else:
-                        DictMsgList = []
-                        DictMsgList.append(MsgDict)
-                        NewDict = {
-                            'MsgList': DictMsgList
-                        }
-                        with open(MsgPath, 'w', encoding='utf-8') as MsgFile:
-                            json.dump(NewDict, MsgFile, indent=4, ensure_ascii=False)
-                    self.LearningUpdate(MsgPath, MsgDict['sender']['group']['id'], MsgDict)
-                else:
-                    print('Not learning msg.')
+                        print('Not learning msg.')
 
-                # 回复
-                ReplyList = self.Config['dfm:chat_learning']['components']['dfm:reply_list']['value']
-                if MsgDict['sender']['group']['id'] in ReplyList:
-                    print('Found answer msg.')
-                    Chance = random.randint(1, 100)
-                    ReplyConfigDict = self.Config['dfm:chat_learning']['components']['dfm:reply']
-                    if Chance <= ReplyConfigDict['chance'] * 100:
-                        # 检索对应群词库，后续应该补充，检索对应群词库不到的去检索整合词库
-                        AnswerMsgPath = '/XiaoFeimianConfig/Msg/{0}_QA.json'.format(MsgDict['sender']['group']['id'])
-                        try:
-                            with open(AnswerMsgPath, 'r', encoding='utf-8') as AnswerMsgFile:
-                                Json = AnswerMsgFile.read()
-                                AnswerDict = json.loads(Json)
-                                AnswerList = AnswerDict['QAList']
-                        except:
-                            AnswerList = []
-                        QuestionType, QuestionData = self.ProcessMsgTypeToLearning(MsgDict)
-                        SendNum = 0
-                        for OneQA in AnswerList:
-                            # 100% 匹配
-                            if QuestionType == OneQA['QuestionMsgType'] and QuestionData == OneQA['QuestionMsg']:
-                                AnswerMsgDict = random.choice(OneQA['AnswerList'])
-                                AnswerMsg = {
-                                    "type": AnswerMsgDict['AnswerMsgType']
-                                }
-                                MsgType = AnswerMsgDict['AnswerMsgType']
-                                if MsgType == 'Plain':
-                                    AnswerMsg['text'] = AnswerMsgDict['AnswerMsg']
-                                if MsgType == 'Image':
-                                    # 是否有图库json
-                                    ImagePath = '/XiaoFeimianConfig/Msg/Image.json'
-                                    if os.path.exists(ImagePath):
-                                        # 直接读取文件
-                                        with open(ImagePath, 'r', encoding='utf-8') as ImageFile:
-                                            ImageFileDict = json.loads(ImageFile.read())
-                                            try:
-                                                AnswerMsg['url'] = ImageFileDict[AnswerMsgDict['AnswerMsg']]
-                                            except:
-                                                AnswerMsg['url'] = 'https://x19.fp.ps.netease.com/file/64a1f11df6a477098a522a6fO1RcmRcB05'
-                                    else:
-                                        # 没有就发大肥免图片！
-                                        AnswerMsg['url'] = 'https://x19.fp.ps.netease.com/file/64a1f11df6a477098a522a6fO1RcmRcB05'
-                                if MsgType == 'Face':
-                                    AnswerMsg['faceId'] = AnswerMsgDict['AnswerMsg']
-                                if MsgType == 'Voice':
-                                    AnswerMsg['url'] = AnswerMsgDict['AnswerMsg']
-                                Timer = random.uniform(ReplyConfigDict['reply_wait_base_time'] - ReplyConfigDict['reply_wait_float_time'],
-                                                  ReplyConfigDict['reply_wait_base_time'] + ReplyConfigDict['reply_wait_float_time'])
-                                print('Send msg wait time: {0} seconds'.format(Timer))
-                                time.sleep(Timer)
-                                SendNum += 1
-                                self.SendGroupAnswerMsg(AnswerMsg, MsgDict['sender']['group']['id'])
-                        # 如果不匹配，就找相似问题的答案
-                        if QuestionType == 'Plain' and not SendNum and ReplyConfigDict['cos_match']:
-                            SimilarList = []
+                    # 回复
+                    ReplyList = self.Config['dfm:chat_learning']['components']['dfm:reply_list']['value']
+                    if MsgDict['sender']['group']['id'] in ReplyList:
+                        print('Found answer msg.')
+                        Chance = random.randint(1, 100)
+                        ReplyConfigDict = self.Config['dfm:chat_learning']['components']['dfm:reply']
+                        if Chance <= ReplyConfigDict['chance'] * 100:
+                            # 检索对应群词库，后续应该补充，检索对应群词库不到的去检索整合词库
+                            AnswerMsgPath = '/XiaoFeimianConfig/Msg/{0}_QA.json'.format(MsgDict['sender']['group']['id'])
+                            try:
+                                with open(AnswerMsgPath, 'r', encoding='utf-8') as AnswerMsgFile:
+                                    Json = AnswerMsgFile.read()
+                                    AnswerDict = json.loads(Json)
+                                    AnswerList = AnswerDict['QAList']
+                            except:
+                                AnswerList = []
+                            QuestionType, QuestionData = self.ProcessMsgTypeToLearning(MsgDict)
+                            SendNum = 0
                             for OneQA in AnswerList:
-                                OneMatch = difflib.SequenceMatcher(None, str(QuestionData), str(OneQA['QuestionMsg'])).ratio()
-                                if OneMatch >= ReplyConfigDict['cos_match_value']:
-                                    MatchDict = {
-                                        'Match': OneMatch,
-                                        'AnswerList': OneQA['AnswerList']
+                                # 100% 匹配
+                                if QuestionType == OneQA['QuestionMsgType'] and QuestionData == OneQA['QuestionMsg']:
+                                    AnswerMsgDict = random.choice(OneQA['AnswerList'])
+                                    AnswerMsg = {
+                                        "type": AnswerMsgDict['AnswerMsgType']
                                     }
-                                    SimilarList.append(MatchDict)
-                            if SimilarList:
-                                SortSimilarList = self.NewSortListByNumberMagnitude(SimilarList, 'Match', True)
-                                AnswerMsgDict = random.choice(SortSimilarList[0]['AnswerList'])
-                                AnswerMsg = {
-                                    "type": AnswerMsgDict['AnswerMsgType'],
-                                    'text': AnswerMsgDict['AnswerMsg']
-                                }
-                                Timer = random.uniform(
-                                    ReplyConfigDict['reply_wait_base_time'] - ReplyConfigDict['reply_wait_float_time'],
-                                    ReplyConfigDict['reply_wait_base_time'] + ReplyConfigDict['reply_wait_float_time'])
-                                print('Send similar msg wait time: {0} seconds'.format(Timer))
-                                time.sleep(Timer)
-                                self.SendGroupAnswerMsg(AnswerMsg, MsgDict['sender']['group']['id'])
+                                    MsgType = AnswerMsgDict['AnswerMsgType']
+                                    if MsgType == 'Plain':
+                                        AnswerMsg['text'] = AnswerMsgDict['AnswerMsg']
+                                        AnswerHasBan, AnswerBanNum = self.GetBan(AnswerMsgDict['AnswerMsg'])
+                                        if AnswerHasBan:
+                                            AnswerBanMsg = {
+                                                "type": 'Plain',
+                                                "text": '***'
+                                            }
+                                            self.SendGroupAnswerMsg(AnswerBanMsg, MsgDict['sender']['group']['id'])
+                                            AnswerMsg['text'] = '我被网易MC屏蔽词了！只能发出***'
+                                    if MsgType == 'Image':
+                                        # 是否有图库json
+                                        ImagePath = '/XiaoFeimianConfig/Msg/Image.json'
+                                        if os.path.exists(ImagePath):
+                                            # 直接读取文件
+                                            with open(ImagePath, 'r', encoding='utf-8') as ImageFile:
+                                                ImageFileDict = json.loads(ImageFile.read())
+                                                try:
+                                                    AnswerMsg['url'] = ImageFileDict[AnswerMsgDict['AnswerMsg']]
+                                                except:
+                                                    AnswerMsg['url'] = 'https://x19.fp.ps.netease.com/file/64a1f11df6a477098a522a6fO1RcmRcB05'
+                                        else:
+                                            # 没有就发大肥免图片！
+                                            AnswerMsg['url'] = 'https://x19.fp.ps.netease.com/file/64a1f11df6a477098a522a6fO1RcmRcB05'
+                                    if MsgType == 'Face':
+                                        AnswerMsg['faceId'] = AnswerMsgDict['AnswerMsg']
+                                    if MsgType == 'Voice':
+                                        AnswerMsg['url'] = AnswerMsgDict['AnswerMsg']
+                                    Timer = random.uniform(ReplyConfigDict['reply_wait_base_time'] - ReplyConfigDict['reply_wait_float_time'],
+                                                      ReplyConfigDict['reply_wait_base_time'] + ReplyConfigDict['reply_wait_float_time'])
+                                    print('Send msg wait time: {0} seconds'.format(Timer))
+                                    time.sleep(Timer)
+                                    SendNum += 1
+                                    self.SendGroupAnswerMsg(AnswerMsg, MsgDict['sender']['group']['id'])
+                            # 如果不匹配，就找相似问题的答案
+                            if QuestionType == 'Plain' and not SendNum and ReplyConfigDict['cos_match']:
+                                SimilarList = []
+                                for OneQA in AnswerList:
+                                    OneMatch = difflib.SequenceMatcher(None, str(QuestionData), str(OneQA['QuestionMsg'])).ratio()
+                                    if OneMatch >= ReplyConfigDict['cos_match_value']:
+                                        MatchDict = {
+                                            'Match': OneMatch,
+                                            'AnswerList': OneQA['AnswerList']
+                                        }
+                                        SimilarList.append(MatchDict)
+                                if SimilarList:
+                                    SortSimilarList = self.NewSortListByNumberMagnitude(SimilarList, 'Match', True)
+                                    AnswerMsgDict = random.choice(SortSimilarList[0]['AnswerList'])
+                                    AnswerMsg = {
+                                        "type": AnswerMsgDict['AnswerMsgType'],
+                                        'text': AnswerMsgDict['AnswerMsg']
+                                    }
+                                    Timer = random.uniform(
+                                        ReplyConfigDict['reply_wait_base_time'] - ReplyConfigDict['reply_wait_float_time'],
+                                        ReplyConfigDict['reply_wait_base_time'] + ReplyConfigDict['reply_wait_float_time'])
+                                    print('Send similar msg wait time: {0} seconds'.format(Timer))
+                                    time.sleep(Timer)
+                                    self.SendGroupAnswerMsg(AnswerMsg, MsgDict['sender']['group']['id'])
 
     # 肥免api模块迁移
     def NewSortListByNumberMagnitude(self, List, Key, IsPositiveSequence):
@@ -279,6 +350,7 @@ class Main(object):
         for OneQA in QAFileDict['QAList']:
             if OneQA['QuestionMsg'] == QuestionData and OneQA['QuestionMsgType'] == QuestionType:
                 Num += 1
+                # 这里到时候要改成list套list里面一堆dict，因为有些消息是组合消息，可以根据len来解救
                 AnswerDict = {
                     'AnswerMsg': AnswerData,
                     'AnswerMsgType': AnswerType
@@ -347,4 +419,22 @@ class Main(object):
         folder = os.path.exists(Path)
         if not folder:
             os.makedirs(Path)
+
+
+    def GetBan(self, Msg):
+        Bool = False
+        AllBanNum = 0
+        BanList = self.Config['dfm:chat_learning']['components']['dfm:ban']['ban_list']
+        for Ban in BanList:
+            AllNum = len(Ban)
+            BanNum = 0
+            for Oneban in Ban:
+                for Onetext in Msg:
+                    if Onetext == Oneban:
+                        BanNum += 1
+                        AllBanNum += 1
+                        print('[Ban] Ban text: {0}.'.format(Onetext))
+            if BanNum >= AllNum:
+                Bool = True
+        return Bool, int(AllBanNum / 2)
 

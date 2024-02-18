@@ -17,6 +17,7 @@ class XiaoFeimian(object):
         self.CommandThread = None
         self.MainThread = None
 
+
     # 开始运行
     def StartRunning(self):
         self.MainThread = threading.Thread(target=Main, args=(self.Config,), name='Main')
@@ -30,14 +31,28 @@ class XiaoFeimian(object):
 
     # 生成基础配置文件
     def InitBaseConfigFile(self):
+        Version = '1.0.3'
+        Update = False
         self.TestAndCreateFolder('/XiaoFeimianConfig')
         try:
-            with open('/XiaoFeimianConfig/config.json', 'r') as ConfigFile:
+            with open('/XiaoFeimianConfig/config.json', 'r', encoding='utf-8') as ConfigFile:
                 Data = ConfigFile.read()
                 self.Config = json.loads(Data)
-                print('Config file loading completed. Version is {0}'.format(self.Config['format_version']))
+                if Version == self.Config['format_version']:
+                    print('Config file loading completed. Version is {0}'.format(self.Config['format_version']))
+                else:
+                    print('[!]: Config file version update. Version is {0}.'.format(self.Config['format_version']))
+                    with open('/XiaoFeimianConfig/config.json', 'w', encoding='utf-8') as ConfigFile:
+                        DefaultConfigJson = DefaultCode().DefaultConfig()
+                        json.dump(DefaultConfigJson, ConfigFile, indent=4, ensure_ascii=False)
+                        self.Config = DefaultConfigJson
+                    Update = True
+                    while True:
+                        print('[!]: The config file is update latest version.')
+                        print('[!]: PLEASE RESTART THE PYTHON EXE.')
+                        time.sleep(10)
         except:
-            with open('/XiaoFeimianConfig/config.json', 'w') as ConfigFile:
+            with open('/XiaoFeimianConfig/config.json', 'w', encoding='utf-8') as ConfigFile:
                 DefaultConfigJson = DefaultCode().DefaultConfig()
                 json.dump(DefaultConfigJson, ConfigFile, indent=4, ensure_ascii=False)
                 self.Config = DefaultConfigJson
@@ -46,7 +61,7 @@ class XiaoFeimian(object):
         TestResult, ErrorNum, ErrorKeyList = self.TestConfigFile()
         if not TestResult:
             print('Config file error. Error num is {0}. Error list is {1}'.format(ErrorNum, ErrorKeyList))
-        else:
+        elif not Update:
             self.StartRunning()
             # self.CommandThread.join()
 
