@@ -71,7 +71,9 @@ adapterSettings:
    - ban_list: 违禁词列表，宽泛检测。如'操.你.妈','你妈妈在操场'也会被是作为违禁词。
    - admin_ban_text: 有管理员的时候遇到违禁词(会撤回对应消息)，值为空时则不回复，{n}表示违禁检测的数量,{name}表示名字
    - not_admin_ban_text: 没有管理员的时候遇到违禁词时回复，值为空时则不回复，{n}表示违禁检测的数量,{name}表示名字
-   你也可以在`XiaoFeimian.exe`程序里输入`config help`来查看这些信息。示范：
+  
+
+你也可以在`XiaoFeimian.exe`程序里输入`config help`来查看这些信息。示范：
 ```json
 {
     "format_version": "1.0.3",
