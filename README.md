@@ -67,36 +67,33 @@ adapterSettings:
    - dfm:cos_match_value: 相似度计算达到多少就匹配答案(0~1)
    - dfm:reply_wait_base_time: 回复行为的基础等待时间
    - dfm:reply_wait_float_time: 回复行为的浮动时间(+-)
+   - dfm:ban bool: 是否开启违禁词检测
+   - ban_list: 违禁词列表，宽泛检测。如'操.你.妈','你妈妈在操场'也会被是作为违禁词。
+   - admin_ban_text: 有管理员的时候遇到违禁词(会撤回对应消息)，值为空时则不回复，{n}表示违禁检测的数量,{name}表示名字
+   - not_admin_ban_text: 没有管理员的时候遇到违禁词时回复，值为空时则不回复，{n}表示违禁检测的数量,{name}表示名字
    你也可以在`XiaoFeimian.exe`程序里输入`config help`来查看这些信息。示范：
 ```json
 {
-    "format_version": "1.0.0",
+    "format_version": "1.0.3",
     "dfm:chat_learning": {
         "description": {
             "key": "",
             "host": "localhost",
             "port": "23750",
-            "qq": "3567749021",
+            "qq": "3778086346",
             "session": ""
         },
         "components": {
             "dfm:learning_list": {
                 "value": [
-                    766176115,
                     687577485,
-                    456370680,
-                    212048505,
-                    180568043
+                    456370680  
                 ]
             },
             "dfm:reply_list": {
                 "value": [
-                    766176115,
                     687577485,
-                    456370680,
-                    598874379,
-                    212048505,
-                    180568043
+                    456370680 
                 ]
             },
             "dfm:reply": {
@@ -105,6 +102,20 @@ adapterSettings:
                 "cos_match_value": 0.5,
                 "reply_wait_base_time": 1.0,
                 "reply_wait_float_time": 0.5
+            },
+            "dfm:ban": {
+                "bool": true,
+                "ban_list": [
+                    "操",
+                    "操你妈",
+                    "丝袜",
+                    "色色",
+                    "立了",
+                    "群",
+                    "你妈"
+                ],
+                "admin_ban_text": "{name}你这个坏蛋！竟然说了{n}个坏字！我要撤回你！",
+                "not_admin_ban_text": "{name}你的话里有{n}个坏字！我不听！"
             }
         }
     }
