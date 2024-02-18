@@ -438,9 +438,9 @@ class Main(object):
                         print('[Ban] Ban text: {0}， {1}, {2}.'.format(Onetext, Oneban, Ban))
             if BanNum >= AllNum:
                 Bool = True
+                AllBanNum = BanNum
             else:
                 BanNum = 0
-                AllBanNum = 0
                 AllNum = 9999
         print(AllNum, BanNum)
         return Bool, AllBanNum
