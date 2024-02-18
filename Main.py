@@ -440,6 +440,7 @@ class Main(object):
                 Bool = True
             else:
                 BanNum = 0
+                AllBanNum = 0
                 AllNum = 9999
         print(AllNum, BanNum)
         return Bool, AllBanNum
