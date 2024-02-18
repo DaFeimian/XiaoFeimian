@@ -429,12 +429,18 @@ class Main(object):
             AllNum = len(Ban)
             BanNum = 0
             for Oneban in Ban:
+                textList = []
                 for Onetext in Msg:
-                    if Onetext == Oneban:
+                    if Onetext == Oneban and Onetext not in textList:
+                        textList.append(Onetext)
                         BanNum += 1
                         AllBanNum += 1
-                        print('[Ban] Ban text: {0}.'.format(Onetext))
+                        print('[Ban] Ban text: {0}， {1}, {2}.'.format(Onetext, Oneban, Ban))
             if BanNum >= AllNum:
                 Bool = True
-        return Bool, int(AllBanNum / 2)
+            else:
+                BanNum = 0
+                AllNum = 9999
+        print(AllNum, BanNum)
+        return Bool, AllBanNum
 
