@@ -35,4 +35,8 @@ class CommandControl:
         print('\ndfm:cos_match_value: 相似度计算达到多少就匹配答案(0~1)')
         print('\ndfm:reply_wait_base_time: 回复行为的基础等待时间')
         print('\ndfm:reply_wait_float_time: 回复行为的浮动时间(+-)')
+        print('\ndfm:ban <bool>: 是否开启违禁词检测')
+        print('\ndfm:ban <ban_list>: 违禁词列表，宽泛检测。如"操.你.妈","你妈妈在操场"也会被是作为违禁词')
+        print('\ndfm:ban <admin_ban_text>: 有管理员的时候遇到违禁词(会撤回对应消息)，值为空时则不回复，{n}表示违禁检测的数量,{name}表示名字')
+        print('\ndfm:ban <not_admin_ban_text>: 没有管理员的时候遇到违禁词时回复，值为空时则不回复，{n}表示违禁检测的数量,{name}表示名字')
         print('\n后面有空再完善叭！')
